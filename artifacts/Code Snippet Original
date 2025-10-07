@@ -1,0 +1,1266 @@
+import React, { useState, useEffect } from 'react';
+import { Download, Settings, Calculator, FileText, AlertCircle, CheckCircle } from 'lucide-react';
+import * as XLSX from 'xlsx';
+
+// ECSA Fee Tables Data (2025) - Corrected from official specification
+const ECSA_DATA = {
+  tables: {
+    1: { // Civil & Structural Engineering (Engineering Projects)
+      name: "Civil & Structural Engineering (Engineering Projects)",
+      brackets: [
+        { min: 1050000, max: 2100000, primary: 178500, secondary: 17.0 },
+        { min: 2100000, max: 10500000, primary: 336000, secondary: 12.5 },
+        { min: 10500000, max: 21000000, primary: 1386000, secondary: 10.5 },
+        { min: 21000000, max: 52500000, primary: 2488500, secondary: 9.0 },
+        { min: 52500000, max: 105000000, primary: 5323500, secondary: 8.0 },
+        { min: 105000000, max: 630000000, primary: 9523500, secondary: 7.0 },
+        { min: 630000000, max: Infinity, primary: 46273500, secondary: 6.0 }
+      ]
+    },
+    2: { // Additional design fee: Reinforced Concrete & Structural Steel
+      name: "Additional Design Fee: Reinforced Concrete & Structural Steel",
+      brackets: [
+        { min: 1050000, max: 2100000, primary: 84000, secondary: 8.0 },
+        { min: 2100000, max: 10500000, primary: 157500, secondary: 5.5 },
+        { min: 10500000, max: 21000000, primary: 619500, secondary: 4.5 },
+        { min: 21000000, max: 52500000, primary: 1092000, secondary: 3.5 },
+        { min: 52500000, max: 105000000, primary: 2194500, secondary: 3.0 },
+        { min: 105000000, max: Infinity, primary: 3769500, secondary: 2.5 }
+      ]
+    },
+    3: { // Civil Engineering (Building Projects)
+      name: "Civil Engineering (Building Projects)",
+      brackets: [
+        { min: 1050000, max: 2100000, primary: 178500, secondary: 17.0 },
+        { min: 2100000, max: 10500000, primary: 336000, secondary: 12.5 },
+        { min: 10500000, max: 21000000, primary: 1386000, secondary: 10.5 },
+        { min: 21000000, max: 52500000, primary: 2488500, secondary: 9.5 },
+        { min: 52500000, max: Infinity, primary: 5481000, secondary: 8.5 }
+      ]
+    },
+    4: { // Structural Engineering (Building Projects)
+      name: "Structural Engineering (Building Projects)",
+      brackets: [
+        { min: 1050000, max: 2100000, primary: 178500, secondary: 17.0 },
+        { min: 2100000, max: 10500000, primary: 336000, secondary: 12.5 },
+        { min: 10500000, max: 21000000, primary: 1386000, secondary: 10.5 },
+        { min: 21000000, max: 52500000, primary: 2488500, secondary: 9.5 },
+        { min: 52500000, max: Infinity, primary: 5481000, secondary: 8.5 }
+      ]
+    },
+    5: { // Mechanical Engineering (Engineering Projects) 
+      name: "Mechanical Engineering (Engineering Projects)",
+      brackets: [
+        { min: 1050000, max: 2100000, primary: 178500, secondary: 17.0 },
+        { min: 2100000, max: 10500000, primary: 336000, secondary: 12.5 },
+        { min: 10500000, max: 21000000, primary: 1386000, secondary: 10.5 },
+        { min: 21000000, max: 52500000, primary: 2488500, secondary: 9.0 },
+        { min: 52500000, max: 105000000, primary: 5323500, secondary: 8.0 },
+        { min: 105000000, max: 630000000, primary: 9523500, secondary: 7.0 },
+        { min: 630000000, max: Infinity, primary: 46273500, secondary: 6.5 }
+      ]
+    },
+    6: { // Electrical Engineering (Engineering Projects)
+      name: "Electrical Engineering (Engineering Projects)",
+      brackets: [
+        { min: 1050000, max: 2100000, primary: 178500, secondary: 17.0 },
+        { min: 2100000, max: 10500000, primary: 336000, secondary: 12.5 },
+        { min: 10500000, max: 21000000, primary: 1386000, secondary: 10.5 },
+        { min: 21000000, max: 52500000, primary: 2488500, secondary: 9.0 },
+        { min: 52500000, max: 105000000, primary: 5323500, secondary: 8.0 },
+        { min: 105000000, max: 630000000, primary: 9523500, secondary: 7.0 },
+        { min: 630000000, max: Infinity, primary: 46273500, secondary: 6.5 }
+      ]
+    },
+    7: { // Mechanical Engineering (Building Projects)
+      name: "Mechanical Engineering (Building Projects)",
+      brackets: [
+        { min: 1050000, max: 2100000, primary: 210000, secondary: 20.0 },
+        { min: 2100000, max: 10500000, primary: 399000, secondary: 15.0 },
+        { min: 10500000, max: 21000000, primary: 1659000, secondary: 13.0 },
+        { min: 21000000, max: 52500000, primary: 3024000, secondary: 11.5 },
+        { min: 52500000, max: 105000000, primary: 6646500, secondary: 10.5 },
+        { min: 105000000, max: 630000000, primary: 12159000, secondary: 10.0 }
+      ]
+    },
+    8: { // Electrical Engineering (Building Projects)
+      name: "Electrical Engineering (Building Projects)",
+      brackets: [
+        { min: 1050000, max: 2100000, primary: 210000, secondary: 20.0 },
+        { min: 2100000, max: 10500000, primary: 399000, secondary: 15.0 },
+        { min: 10500000, max: 21000000, primary: 1659000, secondary: 13.0 },
+        { min: 21000000, max: 52500000, primary: 3024000, secondary: 11.5 },
+        { min: 52500000, max: 105000000, primary: 6646500, secondary: 10.5 },
+        { min: 105000000, max: Infinity, primary: 12159000, secondary: 10.0 }
+      ]
+    }
+  },
+  factors: {
+    "2A": [
+      { name: "Rural roads", factor: 0.85 },
+      { name: "Alterations to existing works", factor: 1.25 },
+      { name: "Duplication of works", factor: 0.25 },
+      { name: "Financial admin handled by QS", factor: 0.85 }
+    ],
+    "3A": [
+      { name: "Alterations to existing works", factor: 1.25 },
+      { name: "Internal water and drainage for buildings", factor: 1.25 },
+      { name: "Mass concrete foundations, brickwork and cladding", factor: 0.33 },
+      { name: "Duplication of works", factor: 0.25 }
+    ],
+    "4A": [
+      { name: "Alterations to existing works", factor: 1.25 },
+      { name: "Mass concrete foundations, brickwork and cladding", factor: 0.33 },
+      { name: "Duplication of works", factor: 0.25 }
+    ],
+    "5A": [
+      { name: "Multi-tenant installations", factor: 1.25 },
+      { name: "Alterations to existing works", factor: 1.25 },
+      { name: "Duplication of works", factor: 0.25 },
+      { name: "Financial admin handled by QS", factor: 0.85 }
+    ],
+    "6A": [
+      { name: "Multi-tenant installations", factor: 1.25 },
+      { name: "Alterations to existing works", factor: 1.25 },
+      { name: "Duplication of works", factor: 0.25 },
+      { name: "Financial admin handled by QS", factor: 0.85 }
+    ],
+    "7A": [
+      { name: "Multi-tenant installations", factor: 1.25 },
+      { name: "Alterations to existing works", factor: 1.25 },
+      { name: "Duplication of works", factor: 0.25 },
+      { name: "Financial admin handled by QS", factor: 0.85 }
+    ],
+    "8A": [
+      { name: "Multi-tenant installations", factor: 1.25 },
+      { name: "Alterations to existing works", factor: 1.25 },
+      { name: "Duplication of works", factor: 0.25 },
+      { name: "Financial admin handled by QS", factor: 0.85 }
+    ]
+  },
+  stages: {
+    "Civil Engineering Projects": {
+      "Inception": 5,
+      "Concept and Viability": 25,
+      "Design Development": 25,
+      "Documentation and Procurement": 25,
+      "Contract Administration and Inspection": 15,
+      "Close-Out": 5
+    },
+    "Structural Engineering Projects": {
+      "Inception": 5,
+      "Concept and Viability": 25,
+      "Design Development": 30,
+      "Documentation and Procurement": 10,
+      "Contract Administration and Inspection": 25,
+      "Close-Out": 5
+    },
+    "Building Projects": {
+      "Inception": 5,
+      "Concept and Viability": 25,
+      "Design Development": 25,
+      "Documentation and Procurement": 15,
+      "Contract Administration and Inspection": 25,
+      "Close-Out": 5
+    },
+    "Mechanical and Electrical Projects": {
+      "Inception": 5,
+      "Concept and Viability": 15,
+      "Design Development": 20,
+      "Documentation and Procurement": 20,
+      "Contract Administration and Inspection": 35,
+      "Close-Out": 5
+    }
+  }
+};
+
+const ECSAFeeCalculator = () => {
+  const [activeTab, setActiveTab] = useState('calculator');
+  const [inputMethod, setInputMethod] = useState('total'); // 'total' or 'category'
+  const [totalCost, setTotalCost] = useState('');
+  const [percentages, setPercentages] = useState({});
+  const [categoryCosts, setCategoryCosts] = useState({});
+  const [selectedFactors, setSelectedFactors] = useState({});
+  const [discounts, setDiscounts] = useState({});
+  const [results, setResults] = useState(null);
+  const [adminMode, setAdminMode] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+
+  // Initialize percentages
+  useEffect(() => {
+    const initialPercentages = {};
+    Object.keys(ECSA_DATA.tables).forEach(key => {
+      initialPercentages[key] = '';
+    });
+    setPercentages(initialPercentages);
+  }, []);
+
+  // Helper function to get active tables (tables with values entered)
+  const getActiveTables = () => {
+    const activeTables = [];
+    
+    if (inputMethod === 'total' && totalCost) {
+      Object.keys(ECSA_DATA.tables).forEach(key => {
+        const percentage = parseFloat(percentages[key] || 0);
+        if (percentage > 0) {
+          activeTables.push(key);
+        }
+      });
+    } else if (inputMethod === 'category') {
+      Object.keys(ECSA_DATA.tables).forEach(key => {
+        const cost = parseFloat(categoryCosts[key] || 0);
+        if (cost > 0) {
+          activeTables.push(key);
+        }
+      });
+    }
+    
+    return activeTables;
+  };
+
+  const activeTables = getActiveTables();
+
+  const validatePercentages = () => {
+    const total = Object.values(percentages).reduce((sum, val) => sum + parseFloat(val || 0), 0);
+    return Math.abs(total - 100) < 0.01; // Allow for small rounding errors
+  };
+
+  const calculateFee = (cost, table) => {
+    if (cost < 1000000) {
+      return { primary: 0, secondary: 0, basic: 0, note: "Lump Sum or Time Basis recommended for projects under R1,000,000" };
+    }
+
+    const bracket = table.brackets.find(b => cost >= b.min && cost < b.max);
+    if (!bracket) return { primary: 0, secondary: 0, basic: 0 };
+
+    const primary = bracket.primary;
+    const secondary = (cost - bracket.min) * (bracket.secondary / 100);
+    const basic = primary + secondary;
+
+    return { primary, secondary, basic };
+  };
+
+  const calculateResults = () => {
+    const calculatedResults = {};
+    let totalUndiscounted = 0;
+    let totalDiscounted = 0;
+
+    Object.keys(ECSA_DATA.tables).forEach(tableKey => {
+      const table = ECSA_DATA.tables[tableKey];
+      let cost = 0;
+
+      if (inputMethod === 'total' && totalCost) {
+        const percentage = parseFloat(percentages[tableKey] || 0);
+        cost = (parseFloat(totalCost) * percentage) / 100;
+      } else if (inputMethod === 'category') {
+        cost = parseFloat(categoryCosts[tableKey] || 0);
+      }
+
+      if (cost > 0) {
+        const feeCalc = calculateFee(cost, table);
+        
+        // Apply factors
+        let adjustmentFactor = 1;
+        let appliedFactors = [];
+        
+        // Table 2A factors apply to both Table 1 AND Table 2
+        if (tableKey === '1' || tableKey === '2') {
+          const table2AFactors = selectedFactors['2'] || []; // Use Table 2A factors for both Table 1 and Table 2
+          table2AFactors.forEach(factorName => {
+            const factorTable = ECSA_DATA.factors['2A'];
+            if (factorTable) {
+              const factor = factorTable.find(f => f.name === factorName);
+              if (factor) {
+                adjustmentFactor *= factor.factor;
+                appliedFactors.push(factorName);
+              }
+            }
+          });
+        } else {
+          // For other tables, use their own factor tables
+          const tableFactors = selectedFactors[tableKey] || [];
+          tableFactors.forEach(factorName => {
+            const factorTable = ECSA_DATA.factors[tableKey + 'A'];
+            if (factorTable) {
+              const factor = factorTable.find(f => f.name === factorName);
+              if (factor) {
+                adjustmentFactor *= factor.factor;
+                appliedFactors.push(factorName);
+              }
+            }
+          });
+        }
+
+        const adjustedFee = feeCalc.basic * adjustmentFactor;
+        
+        // Apply discount
+        const discount = parseFloat(discounts[tableKey] || 0);
+        const discountedFee = adjustedFee * (1 - discount / 100);
+
+        calculatedResults[tableKey] = {
+          tableName: table.name,
+          cost,
+          ...feeCalc,
+          adjustmentFactor,
+          adjustedFee,
+          discount,
+          discountedFee,
+          factors: appliedFactors
+        };
+
+        totalUndiscounted += adjustedFee;
+        totalDiscounted += discountedFee;
+      }
+    });
+
+    // Calculate stage breakdowns
+    const stageBreakdowns = {};
+    Object.keys(calculatedResults).forEach(tableKey => {
+      const result = calculatedResults[tableKey];
+      let stageType = "Building Projects"; // default
+      
+      if (tableKey === '1' || tableKey === '2') stageType = "Civil Engineering Projects";
+      else if (tableKey === '1') stageType = "Structural Engineering Projects";
+      else if (tableKey === '5' || tableKey === '6' || tableKey === '7' || tableKey === '8') stageType = "Mechanical and Electrical Projects";
+
+      const stages = ECSA_DATA.stages[stageType];
+      const stageAmounts = {};
+      
+      Object.keys(stages).forEach(stage => {
+        stageAmounts[stage] = (result.discountedFee * stages[stage]) / 100;
+      });
+
+      stageBreakdowns[tableKey] = {
+        stageType,
+        stages: stageAmounts
+      };
+    });
+
+    const overallDiscount = totalUndiscounted > 0 ? ((totalUndiscounted - totalDiscounted) / totalUndiscounted) * 100 : 0;
+
+    setResults({
+      categories: calculatedResults,
+      totals: {
+        undiscounted: totalUndiscounted,
+        discounted: totalDiscounted,
+        overallDiscount
+      },
+      stages: stageBreakdowns
+    });
+
+    // Automatically navigate to results tab after calculation
+    setActiveTab('results');
+  };
+
+  const exportToPDF = async () => {
+    if (!results) return;
+
+    try {
+      // Dynamic import of jsPDF (available in Claude artifacts)
+      const { jsPDF } = await import('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+      
+      const doc = new jsPDF();
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const timeString = new Date().toLocaleString();
+      
+      // Page setup
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 15;
+      let yPos = margin;
+
+      // Helper function to add new page if needed
+      const checkPageSpace = (requiredSpace) => {
+        if (yPos + requiredSpace > pageHeight - margin) {
+          doc.addPage();
+          yPos = margin;
+          return true;
+        }
+        return false;
+      };
+
+      // Header
+      doc.setFontSize(18);
+      doc.setTextColor(30, 64, 175); // Blue color
+      doc.text('ECSA Fee Calculation Report', pageWidth / 2, yPos, { align: 'center' });
+      yPos += 8;
+
+      doc.setFontSize(9);
+      doc.setTextColor(102, 102, 102); // Gray color
+      doc.text(`Generated on ${timeString}`, pageWidth / 2, yPos, { align: 'center' });
+      yPos += 5;
+      doc.text('Based on ECSA Guideline 2025, Government Gazette No. 52691, 16 May 2025', pageWidth / 2, yPos, { align: 'center' });
+      yPos += 10;
+
+      // Line separator
+      doc.setDrawColor(30, 64, 175);
+      doc.setLineWidth(0.5);
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 10;
+
+      // Summary boxes
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      const summaryBoxWidth = (pageWidth - 3 * margin) / 3;
+      
+      // Summary - Undiscounted
+      doc.setFillColor(248, 250, 252);
+      doc.rect(margin, yPos, summaryBoxWidth, 15, 'F');
+      doc.setFontSize(8);
+      doc.text('Total Undiscounted Fee', margin + 2, yPos + 5);
+      doc.setFontSize(12);
+      doc.setTextColor(30, 64, 175);
+      doc.text(`R ${results.totals.undiscounted.toLocaleString()}`, margin + 2, yPos + 11);
+
+      // Summary - Discounted
+      doc.setTextColor(0, 0, 0);
+      doc.rect(margin + summaryBoxWidth + 5, yPos, summaryBoxWidth, 15, 'F');
+      doc.setFontSize(8);
+      doc.text('Total Discounted Fee', margin + summaryBoxWidth + 7, yPos + 5);
+      doc.setFontSize(12);
+      doc.setTextColor(34, 197, 94);
+      doc.text(`R ${results.totals.discounted.toLocaleString()}`, margin + summaryBoxWidth + 7, yPos + 11);
+
+      // Summary - Discount
+      doc.setTextColor(0, 0, 0);
+      doc.rect(margin + 2 * (summaryBoxWidth + 5), yPos, summaryBoxWidth, 15, 'F');
+      doc.setFontSize(8);
+      doc.text('Overall Discount', margin + 2 * (summaryBoxWidth + 5) + 2, yPos + 5);
+      doc.setFontSize(12);
+      doc.setTextColor(245, 158, 11);
+      doc.text(`${results.totals.overallDiscount.toFixed(2)}%`, margin + 2 * (summaryBoxWidth + 5) + 2, yPos + 11);
+
+      yPos += 25;
+
+      // Fee Calculation Table
+      checkPageSpace(30);
+      doc.setFontSize(12);
+      doc.setTextColor(30, 64, 175);
+      doc.text('Fee Calculation Breakdown', margin, yPos);
+      yPos += 8;
+
+      // Table headers
+      doc.setFontSize(8);
+      doc.setTextColor(0, 0, 0);
+      const colWidths = [35, 20, 20, 20, 20, 15, 20, 15, 25];
+      const headers = ['Category', 'Cost (R)', 'Primary (R)', 'Secondary (R)', 'Basic (R)', 'Factor', 'Adjusted (R)', 'Disc %', 'Final (R)'];
+      
+      let xPos = margin;
+      doc.setFillColor(248, 250, 252);
+      doc.rect(margin, yPos, pageWidth - 2 * margin, 6, 'F');
+      
+      headers.forEach((header, i) => {
+        doc.text(header, xPos + 1, yPos + 4);
+        xPos += colWidths[i];
+      });
+      yPos += 6;
+
+      // Table rows
+      Object.keys(results.categories).forEach(key => {
+        checkPageSpace(8);
+        const result = results.categories[key];
+        
+        xPos = margin;
+        const rowData = [
+          `Table ${key}`,
+          result.cost.toLocaleString(),
+          result.primary.toLocaleString(),
+          result.secondary.toLocaleString(),
+          result.basic.toLocaleString(),
+          result.factors.length > 0 ? `×${result.adjustmentFactor.toFixed(2)}` : '-',
+          result.adjustedFee.toLocaleString(),
+          `${result.discount}%`,
+          result.discountedFee.toLocaleString()
+        ];
+
+        // Draw border
+        doc.setDrawColor(200, 200, 200);
+        doc.rect(margin, yPos, pageWidth - 2 * margin, 6);
+
+        rowData.forEach((data, i) => {
+          doc.text(data, xPos + 1, yPos + 4);
+          xPos += colWidths[i];
+        });
+        yPos += 6;
+      });
+
+      // Total row
+      checkPageSpace(8);
+      xPos = margin;
+      doc.setFillColor(248, 250, 252);
+      doc.rect(margin, yPos, pageWidth - 2 * margin, 6, 'F');
+      doc.setFont(undefined, 'bold');
+      doc.text('TOTALS', xPos + 1, yPos + 4);
+      xPos += colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + colWidths[5] + colWidths[6] + colWidths[7];
+      doc.text(results.totals.discounted.toLocaleString(), xPos + 1, yPos + 4);
+      doc.setFont(undefined, 'normal');
+      yPos += 15;
+
+      // Stage Breakdown Section
+      checkPageSpace(20);
+      doc.setFontSize(12);
+      doc.setTextColor(30, 64, 175);
+      doc.text('Stage Breakdown by Category', margin, yPos);
+      yPos += 8;
+
+      doc.setFontSize(8);
+      doc.setTextColor(102, 102, 102);
+      doc.text('Each category has different stage percentage allocations per ECSA Table 9.', margin, yPos);
+      yPos += 10;
+
+      // Individual category stage breakdowns
+      Object.keys(results.categories).forEach(key => {
+        const result = results.categories[key];
+        const breakdown = results.stages[key];
+        const stages = breakdown.stages;
+        const stagePercentages = ECSA_DATA.stages[breakdown.stageType];
+        
+        checkPageSpace(25);
+        
+        // Category header
+        doc.setFontSize(10);
+        doc.setTextColor(30, 64, 175);
+        doc.text(`Table ${key}: ${result.tableName}`, margin, yPos);
+        yPos += 5;
+        
+        doc.setFontSize(8);
+        doc.setTextColor(102, 102, 102);
+        doc.text(`Stage Type: ${breakdown.stageType} | Total Fee: R ${result.discountedFee.toLocaleString()}`, margin, yPos);
+        yPos += 8;
+
+        // Stage table
+        doc.setTextColor(0, 0, 0);
+        const stageColWidths = [60, 25, 30];
+        const stageHeaders = ['Stage', 'Percentage', 'Amount (R)'];
+        
+        // Stage headers
+        xPos = margin;
+        doc.setFillColor(239, 246, 255);
+        doc.rect(margin, yPos, 115, 5, 'F');
+        stageHeaders.forEach((header, i) => {
+          doc.text(header, xPos + 1, yPos + 3.5);
+          xPos += stageColWidths[i];
+        });
+        yPos += 5;
+
+        // Stage rows
+        Object.keys(stages).forEach(stageName => {
+          checkPageSpace(5);
+          xPos = margin;
+          doc.setDrawColor(200, 200, 200);
+          doc.rect(margin, yPos, 115, 5);
+          
+          const stageData = [
+            stageName,
+            `${stagePercentages[stageName]}%`,
+            (stages[stageName] || 0).toLocaleString()
+          ];
+
+          stageData.forEach((data, i) => {
+            doc.text(data, xPos + 1, yPos + 3.5);
+            xPos += stageColWidths[i];
+          });
+          yPos += 5;
+        });
+        
+        yPos += 8;
+      });
+
+      // Citation
+      checkPageSpace(15);
+      doc.setFillColor(239, 246, 255);
+      doc.rect(margin, yPos, pageWidth - 2 * margin, 12, 'F');
+      doc.setDrawColor(30, 64, 175);
+      doc.setLineWidth(2);
+      doc.line(margin, yPos, margin, yPos + 12);
+      
+      doc.setFontSize(8);
+      doc.setTextColor(30, 64, 175);
+      doc.setFont(undefined, 'bold');
+      doc.text('Citation:', margin + 5, yPos + 4);
+      doc.setFont(undefined, 'normal');
+      doc.text('Based on ECSA Guideline 2025, Government Gazette No. 52691, 16 May 2025.', margin + 20, yPos + 4);
+      doc.text('All amounts are in ZAR and exclude VAT.', margin + 5, yPos + 9);
+
+      // Save the PDF
+      doc.save(`ECSA_Fee_Calculation_${timestamp}.pdf`);
+
+    } catch (error) {
+      console.error('PDF generation failed:', error);
+      alert('PDF generation failed. Please try the HTML export option instead.');
+    }
+  };
+
+  const exportToExcel = () => {
+    if (!results) return;
+
+    const wb = XLSX.utils.book_new();
+
+    // Sheet 1: Inputs & Assumptions
+    const inputsData = [
+      ['ECSA Fee Calculator - Inputs & Assumptions'],
+      ['Based on ECSA Guideline 2025, Government Gazette No. 52691, 16 May 2025'],
+      [''],
+      ['Input Method:', inputMethod === 'total' ? 'Total Cost + Percentages' : 'Category Costs'],
+      ['Total Project Cost:', totalCost ? `R ${parseFloat(totalCost).toLocaleString()}` : 'N/A'],
+      [''],
+      ['Category Allocations:']
+    ];
+
+    Object.keys(ECSA_DATA.tables).forEach(key => {
+      const table = ECSA_DATA.tables[key];
+      const cost = inputMethod === 'total' && totalCost ? 
+        (parseFloat(totalCost) * parseFloat(percentages[key] || 0)) / 100 :
+        parseFloat(categoryCosts[key] || 0);
+      
+      inputsData.push([
+        `Table ${key}: ${table.name}`,
+        inputMethod === 'total' ? `${percentages[key] || 0}%` : '',
+        cost ? `R ${cost.toLocaleString()}` : 'R 0'
+      ]);
+    });
+
+    const inputsWS = XLSX.utils.aoa_to_sheet(inputsData);
+    XLSX.utils.book_append_sheet(wb, inputsWS, 'Inputs');
+
+    // Sheet 2: Fee Calculations
+    const calcData = [
+      ['Category', 'Cost (R)', 'Primary Fee (R)', 'Secondary Fee (R)', 'Basic Fee (R)', 
+       'Adjustment Factor', 'Adjusted Fee (R)', 'Discount %', 'Final Fee (R)']
+    ];
+
+    Object.keys(results.categories).forEach(key => {
+      const result = results.categories[key];
+      calcData.push([
+        result.tableName,
+        result.cost.toLocaleString(),
+        result.primary.toLocaleString(),
+        result.secondary.toLocaleString(),
+        result.basic.toLocaleString(),
+        result.adjustmentFactor.toFixed(3),
+        result.adjustedFee.toLocaleString(),
+        `${result.discount}%`,
+        result.discountedFee.toLocaleString()
+      ]);
+    });
+
+    calcData.push(['', '', '', '', '', '', '', '', '']);
+    calcData.push(['TOTALS', '', '', '', '', '', 
+      results.totals.undiscounted.toLocaleString(), '', results.totals.discounted.toLocaleString()]);
+    calcData.push(['Overall Discount %', '', '', '', '', '', '', 
+      `${results.totals.overallDiscount.toFixed(2)}%`, '']);
+
+    const calcWS = XLSX.utils.aoa_to_sheet(calcData);
+    XLSX.utils.book_append_sheet(wb, calcWS, 'Fee Calculations');
+
+    // Sheet 3: Stage Breakdown
+    const stageData = [['Stage Breakdown by Category']];
+    const allStages = new Set();
+    
+    Object.values(results.stages).forEach(breakdown => {
+      Object.keys(breakdown.stages).forEach(stage => allStages.add(stage));
+    });
+
+    const stageHeaders = ['Category', ...Array.from(allStages), 'Total'];
+    stageData.push(stageHeaders);
+
+    Object.keys(results.categories).forEach(key => {
+      const result = results.categories[key];
+      const breakdown = results.stages[key];
+      
+      const row = [result.tableName];
+      allStages.forEach(stage => {
+        row.push(breakdown.stages[stage] ? breakdown.stages[stage].toLocaleString() : '0');
+      });
+      row.push(result.discountedFee.toLocaleString());
+      stageData.push(row);
+    });
+
+    // Add totals row
+    const totalsRow = ['TOTALS'];
+    allStages.forEach(stage => {
+      let stageTotal = 0;
+      Object.values(results.stages).forEach(breakdown => {
+        if (breakdown.stages[stage]) stageTotal += breakdown.stages[stage];
+      });
+      totalsRow.push(stageTotal.toLocaleString());
+    });
+    totalsRow.push(results.totals.discounted.toLocaleString());
+    stageData.push(totalsRow);
+
+    const stageWS = XLSX.utils.aoa_to_sheet(stageData);
+    XLSX.utils.book_append_sheet(wb, stageWS, 'Stage Breakdown');
+
+    // Generate filename with timestamp
+    const timestamp = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `ECSA_Fee_Calculation_${timestamp}.xlsx`);
+  };
+
+  const handleAdminAccess = () => {
+    if (adminPassword === 'ECSA2025Admin') {
+      setAdminMode(true);
+      setAdminPassword('');
+    } else {
+      alert('Invalid admin password');
+    }
+  };
+
+  const resetCalculator = () => {
+    setTotalCost('');
+    const initialPercentages = {};
+    Object.keys(ECSA_DATA.tables).forEach(key => {
+      initialPercentages[key] = '';
+    });
+    setPercentages(initialPercentages);
+    setCategoryCosts({});
+    setSelectedFactors({});
+    setDiscounts({});
+    setResults(null);
+    setActiveTab('calculator');
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-blue-900 text-white p-6">
+        <div className="max-w-6xl mx-auto">
+          <h1 className="text-3xl font-bold mb-2">ECSA Fee Calculator 2025</h1>
+          <p className="text-blue-200">
+            This tool applies the ECSA 2025 Guideline for Scope of Services and Professional Fees 
+            (Government Gazette No. 52691, effective 16 May 2025)
+          </p>
+          <div className="mt-4">
+            <a 
+              href="https://www.gov.za/sites/default/files/gcis_document/202505/52691bn783.pdf" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-blue-300 hover:text-white underline"
+            >
+              📄 View Official Gazette PDF
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <div className="bg-white shadow-sm">
+        <div className="max-w-6xl mx-auto">
+          <nav className="flex space-x-8 p-4">
+            <button 
+              onClick={() => setActiveTab('calculator')}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${
+                activeTab === 'calculator' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Calculator size={20} />
+              <span>Calculator</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab('results')}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${
+                activeTab === 'results' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:text-gray-900'
+              }`}
+              disabled={!results}
+            >
+              <FileText size={20} />
+              <span>Results</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab('admin')}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-colors ${
+                activeTab === 'admin' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Settings size={20} />
+              <span>Admin</span>
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-6xl mx-auto p-6">
+        {activeTab === 'calculator' && (
+          <div className="space-y-6">
+            {/* Input Method Selection */}
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <h2 className="text-xl font-semibold mb-4">Project Cost Input</h2>
+              <div className="flex space-x-4 mb-6">
+                <label className="flex items-center space-x-2">
+                  <input 
+                    type="radio" 
+                    value="total" 
+                    checked={inputMethod === 'total'}
+                    onChange={(e) => setInputMethod(e.target.value)}
+                    className="text-blue-600"
+                  />
+                  <span>Total Cost + Percentage Split</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input 
+                    type="radio" 
+                    value="category" 
+                    checked={inputMethod === 'category'}
+                    onChange={(e) => setInputMethod(e.target.value)}
+                    className="text-blue-600"
+                  />
+                  <span>Cost per Category</span>
+                </label>
+              </div>
+
+              {inputMethod === 'total' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Total Capital Cost (ZAR, excl. VAT)
+                    </label>
+                    <input 
+                      type="number" 
+                      value={totalCost}
+                      onChange={(e) => setTotalCost(e.target.value)}
+                      className="w-full p-3 border rounded-md"
+                      placeholder="e.g., 25000000"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.keys(ECSA_DATA.tables).map(key => (
+                      <div key={key}>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Table {key}: {ECSA_DATA.tables[key].name} (%)
+                        </label>
+                        <input 
+                          type="number" 
+                          step="0.1"
+                          value={percentages[key] || ''}
+                          onChange={(e) => setPercentages({...percentages, [key]: e.target.value})}
+                          className="w-full p-2 border rounded-md"
+                          placeholder="0"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {!validatePercentages() && totalCost && (
+                    <div className="flex items-center space-x-2 text-amber-600">
+                      <AlertCircle size={16} />
+                      <span className="text-sm">
+                        Percentages must total 100%. Current total: {Object.values(percentages).reduce((sum, val) => sum + parseFloat(val || 0), 0).toFixed(1)}%
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {inputMethod === 'category' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {Object.keys(ECSA_DATA.tables).map(key => (
+                    <div key={key}>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Table {key}: {ECSA_DATA.tables[key].name} (ZAR)
+                      </label>
+                      <input 
+                        type="number" 
+                        value={categoryCosts[key] || ''}
+                        onChange={(e) => setCategoryCosts({...categoryCosts, [key]: e.target.value})}
+                        className="w-full p-2 border rounded-md"
+                        placeholder="0"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Multiplicative Factors - Only show for active tables */}
+            {activeTables.length > 0 && (
+              <div className="bg-white p-6 rounded-lg shadow-sm">
+                <h2 className="text-xl font-semibold mb-4">Multiplicative Factors</h2>
+                <p className="text-sm text-gray-600 mb-4">
+                  Factors are shown only for categories where you've entered values.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {Object.keys(ECSA_DATA.factors).map(factorKey => {
+                    const tableKey = factorKey.replace('A', '');
+                    
+                    // Only show factors for active tables
+                    if (!activeTables.includes(tableKey)) {
+                      return null;
+                    }
+                    
+                    return (
+                      <div key={factorKey} className="space-y-2 border border-blue-200 rounded-lg p-4 bg-blue-50">
+                        <h3 className="font-medium text-blue-800">
+                          Table {factorKey} - {ECSA_DATA.tables[tableKey].name}
+                        </h3>
+                        {ECSA_DATA.factors[factorKey].map(factor => (
+                          <label key={factor.name} className="flex items-center space-x-2">
+                            <input 
+                              type="checkbox"
+                              checked={(selectedFactors[tableKey] || []).includes(factor.name)}
+                              onChange={(e) => {
+                                const current = selectedFactors[tableKey] || [];
+                                if (e.target.checked) {
+                                  setSelectedFactors({...selectedFactors, [tableKey]: [...current, factor.name]});
+                                } else {
+                                  setSelectedFactors({...selectedFactors, [tableKey]: current.filter(f => f !== factor.name)});
+                                }
+                              }}
+                              className="text-blue-600"
+                            />
+                            <span className="text-sm">{factor.name} (×{factor.factor})</span>
+                          </label>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Discounts - Only show for active tables */}
+            {activeTables.length > 0 && (
+              <div className="bg-white p-6 rounded-lg shadow-sm">
+                <h2 className="text-xl font-semibold mb-4">Discounts per Category (%)</h2>
+                <p className="text-sm text-gray-600 mb-4">
+                  Discount options are shown only for categories where you've entered values.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {activeTables.map(key => (
+                    <div key={key} className="border border-green-200 rounded-lg p-4 bg-green-50">
+                      <label className="block text-sm font-medium text-green-800 mb-1">
+                        Table {key}: {ECSA_DATA.tables[key].name}
+                      </label>
+                      <input 
+                        type="number" 
+                        step="0.1"
+                        min="0"
+                        max="100"
+                        value={discounts[key] || ''}
+                        onChange={(e) => setDiscounts({...discounts, [key]: e.target.value})}
+                        className="w-full p-2 border border-green-300 rounded-md focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                        placeholder="0"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Calculate and Reset Buttons - Show Calculate button only when there are active tables */}
+            <div className="flex justify-center space-x-4">
+              {activeTables.length > 0 ? (
+                <button 
+                  onClick={calculateResults}
+                  disabled={inputMethod === 'total' && (!totalCost || !validatePercentages())}
+                  className="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center space-x-2"
+                >
+                  <Calculator size={20} />
+                  <span>Calculate Fees</span>
+                </button>
+              ) : (
+                <div className="text-center py-4">
+                  <AlertCircle className="mx-auto mb-2 text-amber-500" size={24} />
+                  <p className="text-gray-600">Enter values in at least one category to calculate fees</p>
+                </div>
+              )}
+              
+              <button 
+                onClick={resetCalculator}
+                className="bg-gray-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-gray-700 flex items-center space-x-2"
+              >
+                <span>🔄</span>
+                <span>Reset</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'results' && results && (
+          <div className="space-y-6">
+            {/* Summary */}
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">Fee Calculation Results</h2>
+                <div className="flex space-x-3">
+                  <button 
+                    onClick={exportToPDF}
+                    className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center space-x-2"
+                  >
+                    <FileText size={16} />
+                    <span>Export to PDF</span>
+                  </button>
+                  <button 
+                    onClick={exportToExcel}
+                    className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center space-x-2"
+                  >
+                    <Download size={16} />
+                    <span>Export to Excel</span>
+                  </button>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="text-sm text-gray-600">Total Undiscounted Fee</div>
+                  <div className="text-xl font-bold text-blue-600">
+                    R {results.totals.undiscounted.toLocaleString()}
+                  </div>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <div className="text-sm text-gray-600">Total Discounted Fee</div>
+                  <div className="text-xl font-bold text-green-600">
+                    R {results.totals.discounted.toLocaleString()}
+                  </div>
+                </div>
+                <div className="bg-amber-50 p-4 rounded-lg">
+                  <div className="text-sm text-gray-600">Overall Discount</div>
+                  <div className="text-xl font-bold text-amber-600">
+                    {results.totals.overallDiscount.toFixed(2)}%
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Detailed Results */}
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <h3 className="text-lg font-semibold mb-4">Detailed Fee Breakdown</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse border border-gray-300">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="border border-gray-300 p-3 text-left">Category</th>
+                      <th className="border border-gray-300 p-3 text-right">Cost (R)</th>
+                      <th className="border border-gray-300 p-3 text-right">Primary Fee (R)</th>
+                      <th className="border border-gray-300 p-3 text-right">Secondary Fee (R)</th>
+                      <th className="border border-gray-300 p-3 text-right">Basic Fee (R)</th>
+                      <th className="border border-gray-300 p-3 text-center">Factors</th>
+                      <th className="border border-gray-300 p-3 text-right">Adjusted Fee (R)</th>
+                      <th className="border border-gray-300 p-3 text-right">Discount %</th>
+                      <th className="border border-gray-300 p-3 text-right">Final Fee (R)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.keys(results.categories).map(key => {
+                      const result = results.categories[key];
+                      return (
+                        <tr key={key}>
+                          <td className="border border-gray-300 p-3">
+                            <div className="font-medium">Table {key}</div>
+                            <div className="text-sm text-gray-600">{result.tableName}</div>
+                          </td>
+                          <td className="border border-gray-300 p-3 text-right">
+                            {result.cost.toLocaleString()}
+                          </td>
+                          <td className="border border-gray-300 p-3 text-right">
+                            {result.primary.toLocaleString()}
+                          </td>
+                          <td className="border border-gray-300 p-3 text-right">
+                            {result.secondary.toLocaleString()}
+                          </td>
+                          <td className="border border-gray-300 p-3 text-right">
+                            {result.basic.toLocaleString()}
+                          </td>
+                          <td className="border border-gray-300 p-3 text-center">
+                            {result.factors.length > 0 ? (
+                              <span className="text-sm">×{result.adjustmentFactor.toFixed(3)}</span>
+                            ) : (
+                              <span className="text-gray-400">None</span>
+                            )}
+                          </td>
+                          <td className="border border-gray-300 p-3 text-right">
+                            {result.adjustedFee.toLocaleString()}
+                          </td>
+                          <td className="border border-gray-300 p-3 text-right">
+                            {result.discount}%
+                          </td>
+                          <td className="border border-gray-300 p-3 text-right font-bold">
+                            {result.discountedFee.toLocaleString()}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Stage Breakdown */}
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <h3 className="text-lg font-semibold mb-4">Stage Breakdown by Category</h3>
+              <p className="text-sm text-gray-600 mb-6">
+                Each category has different stage percentage allocations as per ECSA Table 9 specifications.
+              </p>
+              
+              <div className="space-y-6">
+                {Object.keys(results.categories).map(key => {
+                  const result = results.categories[key];
+                  const breakdown = results.stages[key];
+                  const stages = breakdown.stages;
+                  const stageType = breakdown.stageType;
+                  
+                  // Get the percentage allocations for this stage type
+                  const stagePercentages = ECSA_DATA.stages[stageType];
+                  
+                  return (
+                    <div key={key} className="border border-gray-200 rounded-lg p-4">
+                      <div className="mb-3">
+                        <h4 className="font-semibold text-blue-800">Table {key}: {result.tableName}</h4>
+                        <p className="text-sm text-gray-600">Stage Type: {stageType}</p>
+                        <p className="text-sm font-medium">Total Fee: R {result.discountedFee.toLocaleString()}</p>
+                      </div>
+                      
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse border border-gray-300 text-sm">
+                          <thead>
+                            <tr className="bg-blue-50">
+                              <th className="border border-gray-300 p-2 text-left">Stage</th>
+                              <th className="border border-gray-300 p-2 text-center">Percentage</th>
+                              <th className="border border-gray-300 p-2 text-right">Amount (R)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {Object.keys(stages).map(stageName => (
+                              <tr key={stageName}>
+                                <td className="border border-gray-300 p-2 font-medium">{stageName}</td>
+                                <td className="border border-gray-300 p-2 text-center">
+                                  {stagePercentages[stageName]}%
+                                </td>
+                                <td className="border border-gray-300 p-2 text-right">
+                                  {stages[stageName]?.toLocaleString() || '0'}
+                                </td>
+                              </tr>
+                            ))}
+                            <tr className="bg-gray-50 font-bold">
+                              <td className="border border-gray-300 p-2">TOTAL</td>
+                              <td className="border border-gray-300 p-2 text-center">100%</td>
+                              <td className="border border-gray-300 p-2 text-right">
+                                {result.discountedFee.toLocaleString()}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Summary Table */}
+              <div className="mt-8 border-t pt-6">
+                <h4 className="font-semibold text-gray-800 mb-4">Stage Summary Across All Categories</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse border border-gray-300">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="border border-gray-300 p-3 text-left">Stage</th>
+                        <th className="border border-gray-300 p-3 text-right">Total Amount (R)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        // Calculate totals for each stage across all categories
+                        const stageTotals = {};
+                        Object.values(results.stages).forEach(breakdown => {
+                          Object.keys(breakdown.stages).forEach(stage => {
+                            if (!stageTotals[stage]) stageTotals[stage] = 0;
+                            stageTotals[stage] += breakdown.stages[stage] || 0;
+                          });
+                        });
+
+                        return Object.keys(stageTotals).map(stage => (
+                          <tr key={stage}>
+                            <td className="border border-gray-300 p-3 font-medium">{stage}</td>
+                            <td className="border border-gray-300 p-3 text-right">
+                              {stageTotals[stage].toLocaleString()}
+                            </td>
+                          </tr>
+                        ));
+                      })()}
+                      <tr className="bg-gray-100 font-bold">
+                        <td className="border border-gray-300 p-3">GRAND TOTAL</td>
+                        <td className="border border-gray-300 p-3 text-right">
+                          {results.totals.discounted.toLocaleString()}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* Citation */}
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <p className="text-sm text-blue-800">
+                <strong>Citation:</strong> Based on ECSA Guideline 2025, Government Gazette No. 52691, 16 May 2025.
+                All amounts are in ZAR and exclude VAT.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'admin' && (
+          <div className="bg-white p-6 rounded-lg shadow-sm">
+            <h2 className="text-xl font-semibold mb-4">Admin Panel</h2>
+            
+            {!adminMode ? (
+              <div className="max-w-md">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Admin Password
+                </label>
+                <div className="flex space-x-2">
+                  <input 
+                    type="password" 
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    className="flex-1 p-3 border rounded-md"
+                    placeholder="Enter admin password"
+                    onKeyPress={(e) => e.key === 'Enter' && handleAdminAccess()}
+                  />
+                  <button 
+                    onClick={handleAdminAccess}
+                    className="bg-blue-600 text-white px-4 py-3 rounded-md hover:bg-blue-700"
+                  >
+                    Access
+                  </button>
+                </div>
+                <p className="text-sm text-gray-500 mt-2">
+                  Admin access required to modify fee structures and tables.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="flex items-center space-x-2 text-green-600">
+                  <CheckCircle size={20} />
+                  <span>Admin access granted</span>
+                </div>
+                
+                <div className="bg-amber-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-amber-800 mb-2">Fee Structure Management</h3>
+                  <p className="text-sm text-amber-700 mb-4">
+                    Future versions will include the ability to update fee tables, factors, and stage percentages 
+                    directly through this interface. For now, updates require code modifications.
+                  </p>
+                  <div className="space-y-2">
+                    <div className="text-sm"><strong>Current Tables:</strong> 1-8 (All ECSA 2025 tables loaded)</div>
+                    <div className="text-sm"><strong>Factor Tables:</strong> 2A-8A (All factor tables loaded)</div>
+                    <div className="text-sm"><strong>Stage Definitions:</strong> Table 9 percentages loaded</div>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => setAdminMode(false)}
+                  className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700"
+                >
+                  Exit Admin Mode
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default ECSAFeeCalculator;
