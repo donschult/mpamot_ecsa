@@ -100,7 +100,7 @@ const App = () => {
       return totalCost && Math.abs(totalPercentage - 100) < 0.01;
     }
     return activeTables.length > 0;
-  }, [activeTables.length, inputMethod, totalCost, totalPercentage]);
+  }, [activeTables, inputMethod, totalCost, totalPercentage]);
 
   const exportToExcel = () => {
     if (!results) return;
@@ -166,12 +166,13 @@ const App = () => {
 
     const stageSheet = [['Table', 'Stage', 'Percentage', 'Amount']];
     Object.entries(results.stages).forEach(([tableId, breakdown]) => {
-      const stageDefinition = ECSA_DATA.stages[ECSA_DATA.tableStageMap[tableId]];
+      const stageKey = ECSA_DATA.tableStageMap[tableId];
+      const stageDefinition = stageKey ? ECSA_DATA.stages[stageKey] : undefined;
       Object.entries(breakdown).forEach(([stageName, amount]) => {
         stageSheet.push([
           tableId,
           stageName,
-          `${stageDefinition[stageName]}%`,
+          stageDefinition ? `${stageDefinition[stageName]}%` : 'N/A',
           formatCurrency(amount)
         ]);
       });
@@ -275,25 +276,28 @@ const App = () => {
         y += 14;
       }
 
-      const stageDefinition = ECSA_DATA.stages[ECSA_DATA.tableStageMap[category.tableId]];
-      doc.setTextColor('#1d4ed8');
-      doc.setFont('helvetica', 'bold');
-      doc.text('Stage allocation', margin, y);
-      y += 16;
+      const stageKey = ECSA_DATA.tableStageMap[category.tableId];
+      const stageDefinition = stageKey ? ECSA_DATA.stages[stageKey] : undefined;
+      if (stageDefinition) {
+        doc.setTextColor('#1d4ed8');
+        doc.setFont('helvetica', 'bold');
+        doc.text('Stage allocation', margin, y);
+        y += 16;
 
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor('#0f172a');
-      Object.entries(results.stages[category.tableId]).forEach(([stageName, amount]) => {
-        doc.text(
-          `${stageName} (${stageDefinition[stageName]}%): ${formatCurrency(amount)}`,
-          margin,
-          y
-        );
-        y += 14;
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor('#0f172a');
+        Object.entries(results.stages[category.tableId]).forEach(([stageName, amount]) => {
+          doc.text(
+            `${stageName} (${stageDefinition[stageName]}%): ${formatCurrency(amount)}`,
+            margin,
+            y
+          );
+          y += 14;
+        });
+
+        y += 12;
+      }
       });
-
-      y += 12;
-    });
 
     doc.save('ecsa-fee-calculation.pdf');
   };

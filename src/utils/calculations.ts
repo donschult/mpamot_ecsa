@@ -1,4 +1,4 @@
-import { ECSA_DATA, TableDefinition } from '../data/ecsa';
+import { ECSA_DATA, MIN_PROJECT_VALUE, TableDefinition } from '../data/ecsa';
 
 export type FeeComputation = {
   tableId: string;
@@ -26,13 +26,11 @@ export type CalculationResult = {
   stages: Record<string, StageBreakdown>;
 };
 
-const MIN_COST = 1_000_000;
-
 const findBracket = (table: TableDefinition, cost: number) =>
   table.brackets.find((bracket) => cost >= bracket.min && cost < bracket.max);
 
 const computeFee = (table: TableDefinition, cost: number) => {
-  if (cost < MIN_COST) {
+  if (cost < MIN_PROJECT_VALUE) {
     return {
       primary: 0,
       secondary: 0,
@@ -135,7 +133,10 @@ export const calculateFees = ({
   const stages: Record<string, StageBreakdown> = {};
   Object.values(categories).forEach((category) => {
     const stageKey = ECSA_DATA.tableStageMap[category.tableId];
-    const stageDefinition = ECSA_DATA.stages[stageKey];
+    const stageDefinition = stageKey ? ECSA_DATA.stages[stageKey] : undefined;
+    if (!stageDefinition) {
+      return;
+    }
     const stageBreakdown: StageBreakdown = {};
 
     Object.entries(stageDefinition).forEach(([stageName, percentage]) => {
